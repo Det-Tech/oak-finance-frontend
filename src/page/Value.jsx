@@ -25,7 +25,7 @@ import Github from "../assets/icons/github.png";
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import BigNumber from 'bignumber.js';
-import { erc20ABI, hVaultABI, hStrategyABI } from 'features/configure';
+import { erc20ABI, hVaultABI, hStrategyABI, hMaster2ChefABI } from 'features/configure';
 import { useConnectWallet } from 'features/home/redux/hooks';
 
 const IOSSwitch = styled((props) => (
@@ -85,8 +85,11 @@ const CONTRACTS = {
   padContract:"0x2C24c88f06A316A3995244d10A8D9f881962dBC6",
   lpToken:"0x23cEb1822689A5D3c3E1086075c3fC2cadD372b2",
   vaultContract:"0x13B1f02739Dad0A4Ffc285F566383568D68F99CE",
-  strategyContract:"0x4F4e3362105819E17405F85d923600AbF88e5dFE"
+  strategyContract:"0x4F4e3362105819E17405F85d923600AbF88e5dFE",
+  masterChef2Contract: "0x79f408943a39B2a7ad97211EeF6871A66eaba827",
 }
+const units = ['', 'k', 'M', 'B', 'T', 'Q', 'Q', 'S', 'S'];
+
 
 export default function ValuePage(params) {
   const navigate = useNavigate();
@@ -94,27 +97,118 @@ export default function ValuePage(params) {
   const [depositPrice, setDepositPrice] = React.useState(0);
   const [depositAmount, setDepositAmount] = React.useState(0);
 
+  const [apy, setApy] = React.useState(0);
+  const [dailyApy, setDailyApy] = React.useState(0);
+  const [tvl, setTvl] = React.useState(0);
+  
+  const yearlyToDaily = apy => {
+    const g = Math.pow(10, Math.log10(apy + 1) / 365) - 1;
+
+    if (isNaN(g)) {
+      return 0;
+    }
+
+    return g;
+  };
+
+  const getApy = async() => {
+    const secondsPerBlock = 3;
+    const secondsPerYear = 31536000;
+
+    // get lp token balance of masterChef
+    const tokenContract = new web3.eth.Contract(erc20ABI, CONTRACTS.lpToken);
+    const balance = await tokenContract.methods.balanceOf(CONTRACTS.masterChef2Contract).call();
+    console.log("balance", balance)
+
+    // get poolInfo according to specific poolId from masterChef, in here, we need allocPoint of poolInfo
+    const masterChefContract = new web3.eth.Contract(hMaster2ChefABI, CONTRACTS.masterChef2Contract);
+    const poolId = 0
+    const allocPointInfo = await masterChefContract.methods.poolInfo(poolId).call();
+    console.log(allocPointInfo)
+    const allocPoint = allocPointInfo["allocPoint"]
+    console.log("allocPoint: ", allocPoint)
+
+    // get blockReward and totalAllocPoint from masterChef
+    const blockRewards = new BigNumber(await masterChefContract.methods.cakePerBlock(true).call());
+    const totalAllocPoint = new BigNumber(await masterChefContract.methods.totalRegularAllocPoint().call());
+    console.log("blockRewards: ", blockRewards.toNumber(), "totalAllocPoint: ", totalAllocPoint.toNumber())
+
+    // totalStakeInUsd, poolBlockReward
+    const lpPrice = 1; //await fetchPrice({ oracle: 'lps', id: pool.name });
+    const tokenPrice = 1; // await fetchPrice({ oracle, id: oracleId });
+    const totalStakedInUsd = BigNumber(balance).times(lpPrice).dividedBy('1e18');
+    const poolBlockRewards = blockRewards.times(allocPoint).dividedBy(totalAllocPoint).dividedBy('1e18');
+    console.log("totalStakedInUsd: ", totalStakedInUsd.toNumber(), "poolBlockRewards:", poolBlockRewards.toNumber())
+
+    // yearlyRewards, yearlyRewardsInUsd
+    const yearlyRewards = poolBlockRewards.dividedBy(secondsPerBlock).times(secondsPerYear);
+    const yearlyRewardsInUsd = yearlyRewards.times(tokenPrice).dividedBy('1e18');
+    console.log("yearlyRewards: ", yearlyRewards.toNumber(), "yearlyRewardsInUsd: ", yearlyRewardsInUsd.toNumber())
+
+    // get APY
+    const simpleApy = yearlyRewardsInUsd.dividedBy(totalStakedInUsd).toNumber();
+    console.log("simpleApy: ", simpleApy);
+    setApy(simpleApy.toFixed(2))
+    const totalDaily = yearlyToDaily(simpleApy);
+    console.log("totalDaily: ", totalDaily)
+    setDailyApy(totalDaily.toFixed(2))
+  }
+
+  const getTvl = async() => {
+    const vaultContract = new web3.eth.Contract(hVaultABI, CONTRACTS.vaultContract);
+    const tvl = await vaultContract.methods.balance().call({from: address})
+    console.log("tvl: ", tvl)
+    const tvlAmount = formatDecimalFrom18(tvl)
+    console.log("tvlAmount: ", tvlAmount)
+    const formatTvlAmount = formatTvl(tvlAmount, 0)
+    console.log("formatTvlAmount: ", formatTvlAmount)
+    setTvl(formatTvlAmount);
+  }
+
+  const formatTvl = (tvl, oraclePrice, useOrder = true) => {
+    if (oraclePrice) {
+      tvl = BigNumber(tvl).times(oraclePrice).toFixed(2);
+    }
+  
+    let order = Math.floor(Math.log10(tvl) / 3);
+    if (order < 0 || useOrder === false) {
+      order = 0;
+    }
+  
+    const num = tvl / 1000 ** order;
+  
+    return '$' + num.toFixed(2) + units[order];
+  };
+
+  const formatDecimalFrom18 = (amount)=> {
+    let num=new BigNumber(amount)
+    let denom = new BigNumber(10).pow(18)
+    return num.dividedBy(denom).toNumber().toFixed(2);
+  }
+
+  const getTotalDeposit = ()=> {
+    const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.vaultContract);
+    contract.methods.totalSupply().call({from: address}).then(amount=>{
+
+      const vaultContract = new web3.eth.Contract(hVaultABI, CONTRACTS.vaultContract);
+      vaultContract.methods.getPricePerFullShare().call({from: address}).then(pricePerFullShare=>{
+      console.log("pricePerFullShare: ", pricePerFullShare);
+      const _amount = new BigNumber(amount);
+      const __amount = formatDecimalFrom18(_amount.multipliedBy(new BigNumber(pricePerFullShare)))
+      console.log("totalDepositPrice: ", __amount);
+      console.log("pricePerFullShare: ", pricePerFullShare);
+      setDepositAmount(formatDecimalFrom18(__amount))
+      setDepositPrice(formatDecimalFrom18(__amount*1))
+      }).catch(err=>setDepositPrice(0))
+
+    }).catch();
+  }
+
   React.useEffect(() => {
     if(address){
-      const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.vaultContract);
-      contract.methods.totalSupply().call({from: address}).then(amount=>{
-        let num=new BigNumber(amount)
-        let denom = new BigNumber(10).pow(18)
-        let ans = num.dividedBy(denom).toNumber().toFixed(2)
-        console.log(amount, ans)
-        setDepositAmount(ans)
-
-        const _contract = new web3.eth.Contract(hVaultABI, CONTRACTS.vaultContract);
-          _contract.methods.getPricePerFullShare().call({from: address}).then(pricePerFullShare=>{
-          const _amount = amount * pricePerFullShare;
-          console.log("totalDepositPrice", _amount);
-          let num=new BigNumber(_amount)
-          let denom = new BigNumber(10).pow(18)
-          let ans = num.dividedBy(denom).toNumber().toFixed(2)
-          console.log("totalDepositPrice", ans);
-          setDepositPrice(ans)
-          }).catch(err=>setDepositPrice(0))
-      }).catch()
+      getTotalDeposit();
+      getApy();
+      getTvl();
     }
   }, [address])
 
@@ -280,13 +374,13 @@ export default function ValuePage(params) {
             {depositPrice}
           </span>
           <span className="text-white text-center text-lg font-medium flex-[2]">
-            0
+            {apy}
           </span>
           <span className="text-white text-center text-lg font-medium flex-[2]">
-            0
+            {dailyApy}
           </span>
           <span className="text-white text-center text-lg font-medium flex-[2]">
-            0
+            {tvl}
           </span>
         </div>
       </div>

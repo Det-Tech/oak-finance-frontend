@@ -29,7 +29,7 @@ import LaunchIcon from "@mui/icons-material/Launch";
 import { useNavigate } from "react-router-dom";
 import { useConnectWallet } from 'features/home/redux/hooks';
 
-import { erc20ABI, hVaultABI, hStrategyABI } from 'features/configure';
+import { erc20ABI, hVaultABI, hStrategyABI, hMaster2ChefABI } from 'features/configure';
 import BigNumber from 'bignumber.js';
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -38,8 +38,11 @@ const CONTRACTS = {
   padContract:"0x2C24c88f06A316A3995244d10A8D9f881962dBC6",
   lpToken:"0x23cEb1822689A5D3c3E1086075c3fC2cadD372b2",
   vaultContract:"0x13B1f02739Dad0A4Ffc285F566383568D68F99CE",
-  strategyContract:"0x4F4e3362105819E17405F85d923600AbF88e5dFE"
+  strategyContract:"0x4F4e3362105819E17405F85d923600AbF88e5dFE",
+  masterChef2Contract: "0x79f408943a39B2a7ad97211EeF6871A66eaba827",
 }
+const units = ['', 'k', 'M', 'B', 'T', 'Q', 'Q', 'S', 'S'];
+
 
 toast.configure();
 
@@ -53,7 +56,99 @@ export default function ValueDetailsPage(params) {
 
   const [approved, setApproved] = React.useState(false);
   const [amount, setAmount] = React.useState(0);
-  const [depositPrice, setDepositPrice] = React.useState(0)
+  const [balance, setBalance] = React.useState(0);
+  const [withdrawBalance, setWithdrawBalance] = React.useState(0);
+
+  const [apy, setApy] = React.useState(0);
+  const [dailyApy, setDailyApy] = React.useState(0);
+  const [tvl, setTvl] = React.useState(0);
+  const [depositPrice, setDepositPrice] = React.useState(0);
+  const [depositAmount, setDepositAmount] = React.useState(0);
+
+  const yearlyToDaily = apy => {
+    const g = Math.pow(10, Math.log10(apy + 1) / 365) - 1;
+
+    if (isNaN(g)) {
+      return 0;
+    }
+
+    return g;
+  };
+
+  const getApy = async() => {
+    const secondsPerBlock = 3;
+    const secondsPerYear = 31536000;
+
+    // get lp token balance of masterChef
+    const tokenContract = new web3.eth.Contract(erc20ABI, CONTRACTS.lpToken);
+    const balance = await tokenContract.methods.balanceOf(CONTRACTS.masterChef2Contract).call();
+    console.log("lp token balance in the masterChef", balance)
+
+    // get poolInfo according to specific poolId from masterChef, in here, we need allocPoint of poolInfo
+    const masterChefContract = new web3.eth.Contract(hMaster2ChefABI, CONTRACTS.masterChef2Contract);
+    const poolId = 0
+    const allocPointInfo = await masterChefContract.methods.poolInfo(poolId).call();
+    console.log(allocPointInfo)
+    const allocPoint = allocPointInfo["allocPoint"]
+    console.log("allocPoint: ", allocPoint)
+
+    // get blockReward and totalAllocPoint from masterChef
+    const blockRewards = new BigNumber(await masterChefContract.methods.cakePerBlock(true).call());
+    const totalAllocPoint = new BigNumber(await masterChefContract.methods.totalRegularAllocPoint().call());
+    console.log("blockRewards: ", blockRewards.toNumber(), "totalAllocPoint: ", totalAllocPoint.toNumber())
+
+    // totalStakeInUsd, poolBlockReward
+    const lpPrice = 1; //await fetchPrice({ oracle: 'lps', id: pool.name });
+    const tokenPrice = 1; // await fetchPrice({ oracle, id: oracleId });
+    const totalStakedInUsd = BigNumber(balance).times(lpPrice).dividedBy('1e18');
+    const poolBlockRewards = blockRewards.times(allocPoint).dividedBy(totalAllocPoint).dividedBy('1e18');
+    console.log("totalStakedInUsd: ", totalStakedInUsd.toNumber(), "poolBlockRewards:", poolBlockRewards.toNumber())
+
+    // yearlyRewards, yearlyRewardsInUsd
+    const yearlyRewards = poolBlockRewards.dividedBy(secondsPerBlock).times(secondsPerYear);
+    const yearlyRewardsInUsd = yearlyRewards.times(tokenPrice).dividedBy('1e18');
+    console.log("yearlyRewards: ", yearlyRewards.toNumber(), "yearlyRewardsInUsd: ", yearlyRewardsInUsd.toNumber())
+
+    // get APY
+    const simpleApy = yearlyRewardsInUsd.dividedBy(totalStakedInUsd).toNumber();
+    console.log("simpleApy: ", simpleApy);
+    setApy(simpleApy.toFixed(2))
+    const totalDaily = yearlyToDaily(simpleApy);
+    console.log("totalDaily: ", totalDaily)
+    setDailyApy(totalDaily.toFixed(2))
+  }
+
+  const getTvl = async() => {
+    const vaultContract = new web3.eth.Contract(hVaultABI, CONTRACTS.vaultContract);
+    const tvl = await vaultContract.methods.balance().call({from: address})
+    console.log("tvl: ", tvl)
+    const tvlAmount = formatDecimalFrom18(tvl)
+    console.log("tvlAmount: ", tvlAmount)
+    const formatTvlAmount = formatTvl(tvlAmount, 0)
+    console.log("formatTvlAmount: ", formatTvlAmount)
+    setTvl(formatTvlAmount);
+  }
+
+  const formatTvl = (tvl, oraclePrice, useOrder = true) => {
+    if (oraclePrice) {
+      tvl = BigNumber(tvl).times(oraclePrice).toFixed(2);
+    }
+  
+    let order = Math.floor(Math.log10(tvl) / 3);
+    if (order < 0 || useOrder === false) {
+      order = 0;
+    }
+  
+    const num = tvl / 1000 ** order;
+  
+    return '$' + num.toFixed(2) + units[order];
+  };
+
+  const formatDecimalFrom18 = (amount)=> {
+    let num=new BigNumber(amount)
+    let denom = new BigNumber(10).pow(18)
+    return num.dividedBy(denom).toNumber().toFixed(2);
+  }
 
   const approval = async(address, contractAddress, tokenAddress, amount) => {
     const contract = new web3.eth.Contract(erc20ABI, tokenAddress);
@@ -183,20 +278,46 @@ export default function ValueDetailsPage(params) {
 
   const maxAmountHandle = async()=> {
     if(section == 0){ 
-      const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.lpToken);
-      await contract.methods.balanceOf(address).call({from: address}).then(amount=>{
-        let num=new BigNumber(amount)
-        let denom = new BigNumber(10).pow(18)
-        let ans = num.dividedBy(denom).toNumber().toFixed(16)
-        console.log(ans);
-        setAmount(ans)
-      }).catch(setAmount(0))
+      const res = await getBalance();
+      setAmount(res)
+    }else{
+      const res = await getWithdrawBalance();
+      console.log(res)
+      setAmount(res);
     }
   }
 
+  const getBalance = async()=> {
+    const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.lpToken);
+    return await contract.methods.balanceOf(address).call({from: address}).then(amount=>{
+      let num = new BigNumber(amount)
+      let ans = num.dividedBy('1e18').toNumber().toFixed(2)
+      console.log("my lptoken balance: ", ans, amount);
+      setBalance(ans)
+      return amount;
+    }).catch(err=>{setBalance(0); return 0;})
+  }
+
+  const getWithdrawBalance = async()=> {
+    const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.vaultContract);
+    return await contract.methods.balanceOf(address).call({from: address}).then(amount=>{
+      console.log("withdraw balance share: ", amount);
+      setWithdrawBalance(amount)
+      return amount;
+    }).catch(err=>{setWithdrawBalance(0); return 0})
+  }
+
   const depositHandle = ()=> {
-    if(amount <= 0){
+    if(amount <= 0) {
       toast.info("Please input the amount", {
+        position: toast.POSITION.TOP_RIGHT,
+        autoClose: 3000,
+      });
+      return;
+    }
+
+    if(amount > balance) {
+      toast.info("Please decrease the amount", {
         position: toast.POSITION.TOP_RIGHT,
         autoClose: 3000,
       });
@@ -399,21 +520,31 @@ export default function ValueDetailsPage(params) {
     setValue(newValue);
   };
   
+  const getTotalDeposit = ()=> {
+    const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.vaultContract);
+    contract.methods.totalSupply().call({from: address}).then(amount=>{
+
+      const vaultContract = new web3.eth.Contract(hVaultABI, CONTRACTS.vaultContract);
+      vaultContract.methods.getPricePerFullShare().call({from: address}).then(pricePerFullShare=>{
+      console.log("pricePerFullShare: ", pricePerFullShare);
+      const _amount = new BigNumber(amount);
+      const __amount = formatDecimalFrom18(_amount.multipliedBy(new BigNumber(pricePerFullShare)))
+      console.log("totalDepositPrice: ", __amount);
+      console.log("pricePerFullShare: ", pricePerFullShare);
+      setDepositAmount(formatDecimalFrom18(__amount))
+      setDepositPrice(formatDecimalFrom18(__amount*1))
+      }).catch(err=>setDepositPrice(0))
+
+    }).catch();
+  }
+
   React.useEffect(() => {
     if(address){
-      const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.vaultContract);
-      contract.methods.balanceOf(address).call({from: address}).then(amount=>{
-        const _contract = new web3.eth.Contract(hVaultABI, CONTRACTS.vaultContract);
-          _contract.methods.getPricePerFullShare().call({from: address}).then(pricePerFullShare=>{
-          const _amount = amount * pricePerFullShare;
-          console.log("depositPrice", _amount);
-          let num=new BigNumber(_amount)
-          let denom = new BigNumber(10).pow(18)
-          let ans = num.dividedBy(denom).toNumber().toFixed(2)
-          console.log("depositPrice", ans);
-          setDepositPrice(ans)
-          }).catch(err=>setDepositPrice(0))
-      }).catch(setDepositPrice(0))
+      getBalance();
+      getWithdrawBalance();
+      getTotalDeposit();
+      getApy();
+      getTvl();
     }
   }, [address])
 
@@ -461,7 +592,7 @@ export default function ValueDetailsPage(params) {
                     DEPOSITED
                   </span>
                   <span className="text-white font-semibold text-2xl">
-                    {depositPrice}
+                    {depositAmount}
                   </span>
                 </div>
                 <div className="flex flex-col">
@@ -469,7 +600,7 @@ export default function ValueDetailsPage(params) {
                     DAILY YIELD
                   </span>
                   <span className="text-white font-semibold text-2xl">
-                    $0.00
+                    {dailyApy}
                   </span>
                 </div>
                 <div className="flex flex-col">
@@ -477,7 +608,7 @@ export default function ValueDetailsPage(params) {
                     AVG APY
                   </span>
                   <span className="text-white font-semibold text-2xl">
-                    $0.00
+                    {apy}
                   </span>
                 </div>
               </div>
@@ -493,7 +624,7 @@ export default function ValueDetailsPage(params) {
                     ? "bg-cu-green text-opacity-100"
                     : "text-opacity-60"
                 } flex-1 text-center py-2 rounded-full text-white cursor-pointer`}
-                onClick={() => setSection(0)}
+                onClick={() =>{ setSection(0); setAmount(0)}}
               >
                 Deposit
               </span>
@@ -503,7 +634,7 @@ export default function ValueDetailsPage(params) {
                     ? "bg-cu-green text-opacity-100"
                     : "text-opacity-60"
                 } flex-1 text-center py-2 rounded-full text-white cursor-pointer`}
-                onClick={() => setSection(1)}
+                onClick={() =>{ setSection(1); setAmount(0)}}
               >
                 Withdraw
               </span>
@@ -513,7 +644,7 @@ export default function ValueDetailsPage(params) {
             </span>
             <div className="flex flex-row items-center justify-between w-full my-1">
               <span className="text-white font-semibold text-xs">
-                Balance: 50 USDT-USDC LP
+                Balance: {section == 0? balance: withdrawBalance} USDT-USDC LP
               </span>
               <span className="text-cu-green font-semibold text-xs cursor-pointer" onClick={maxAmountHandle}>
                 MAX
@@ -544,7 +675,7 @@ export default function ValueDetailsPage(params) {
               <Slider
                 getAriaLabel={() => "Temperature range"}
                 value={value}
-                step={25}
+                step={1}
                 color="success"
                 onChange={handleChange}
                 valueLabelDisplay="auto"
@@ -595,7 +726,7 @@ export default function ValueDetailsPage(params) {
                 <span className="text-white font-normal text-base">
                   Performance fee
                 </span>
-                <span className="text-white font-semibold text-3xl">5.3%</span>
+                <span className="text-white font-semibold text-3xl">0.3%</span>
               </div>
               <span className="mt-6 max-w-md w-full text-white font-medium text-sm">
                 Performance fees are already subtracted from the displayed APY.
