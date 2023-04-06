@@ -1,0 +1,32 @@
+
+* {
+  box-sizing: border-box;
+  margin: 0px;
+  padding: 0px;
+}
+
+.Purple-BG {
+  background: radial-gradient(83.82% 288% at 50% 50%, rgba(151, 71, 255, 0.3) 0%, rgba(151, 71, 255, 0) 100%), #0B0D1F;
+}
+
+.Brown-BG {
+  background: radial-gradient(83.82% 288% at 50% 50%, rgba(243, 186, 47, 0.3) 0%, rgba(243, 186, 47, 0) 100%);
+}
+
+.Green-BG {
+  background: radial-gradient(83.82% 288% at 50% 50%, rgba(40, 206, 138, 0.4) 0%, rgba(139, 249, 203, 0) 100%);
+  border-radius: 4px;
+}
+
+.Dark-Green-BG {
+  background: radial-gradient(83.82% 288% at 50% 50%, rgba(40, 206, 138, 0.1) 0%, rgba(139, 249, 203, 0) 100%);
+  border-radius: 4px;
+}
+
+.Navbar-BG{
+  background: url("./assets/images/Navbar.png");
+  width: 100%;
+  object-fit: cover;
+  background-repeat: no-repeat;
+  background-color: #0B0D1F;
+}
