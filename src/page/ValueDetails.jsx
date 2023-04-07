@@ -302,8 +302,10 @@ export default function ValueDetailsPage(params) {
     const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.vaultContract);
     return await contract.methods.balanceOf(address).call({from: address}).then(amount=>{
       console.log("withdraw balance share: ", amount);
-      setWithdrawBalance(amount)
-      return amount;
+      let num = new BigNumber(amount)
+      let ans = num.dividedBy('1e18').toNumber().toFixed(2)
+      setWithdrawBalance(ans)
+      return ans;
     }).catch(err=>{setWithdrawBalance(0); return 0})
   }
 
@@ -334,7 +336,7 @@ export default function ValueDetailsPage(params) {
       autoClose: 3000,
     });
 
-    approval(address, CONTRACTS.vaultContract, CONTRACTS.lpToken, _amount).then(data=>{
+    approval(address, CONTRACTS.vaultContract, CONTRACTS.lpToken, _amount.toString()).then(data=>{
       console.log("approved result data: ", data)
       setApproved(true)
 
@@ -349,7 +351,7 @@ export default function ValueDetailsPage(params) {
         autoClose: 3000,
       });
 
-      deposit(address, CONTRACTS.vaultContract, _amount).then(data=>{
+      deposit(address, CONTRACTS.vaultContract, _amount.toString()).then(data=>{
         console.log("deposited result data: ", data)
         toast.update(_id, {
           render: "Deposited successfully!",
@@ -439,16 +441,18 @@ export default function ValueDetailsPage(params) {
       });
       return;
     }
+
     let denom = new BigNumber(10).pow(18)
     let num=new BigNumber(amount)
     let _amount = num.multipliedBy(denom).toNumber()
+   
     console.log(address, "", CONTRACTS.vaultContract, "", _amount)
 
     const id = toast.loading("Withdrawing...", {
       position: toast.POSITION.TOP_RIGHT,
       autoClose: 3000,
     });
-    withdraw(address, CONTRACTS.vaultContract, _amount).then(data=>{
+    withdraw(address, CONTRACTS.vaultContract, _amount.toString()).then(data=>{
       console.log("withdrawed result data: ", data)
       toast.update(id, {
         render: "Withdrawed successfully!",
