@@ -99,14 +99,14 @@ export default function ValueDetailsPage(params) {
 
     // totalStakeInUsd, poolBlockReward
     const lpPrice = 1; //await fetchPrice({ oracle: 'lps', id: pool.name });
-    const tokenPrice = 1; // await fetchPrice({ oracle, id: oracleId });
+    const tokenPrice = 0.00001; // await fetchPrice({ oracle, id: oracleId });
     const totalStakedInUsd = BigNumber(balance).times(lpPrice).dividedBy('1e18');
     const poolBlockRewards = blockRewards.times(allocPoint).dividedBy(totalAllocPoint).dividedBy('1e18');
     console.log("totalStakedInUsd: ", totalStakedInUsd.toNumber(), "poolBlockRewards:", poolBlockRewards.toNumber())
 
     // yearlyRewards, yearlyRewardsInUsd
     const yearlyRewards = poolBlockRewards.dividedBy(secondsPerBlock).times(secondsPerYear);
-    const yearlyRewardsInUsd = yearlyRewards.times(tokenPrice).dividedBy('1e18');
+    const yearlyRewardsInUsd = yearlyRewards.times(tokenPrice);
     console.log("yearlyRewards: ", yearlyRewards.toNumber(), "yearlyRewardsInUsd: ", yearlyRewardsInUsd.toNumber())
 
     // get APY
