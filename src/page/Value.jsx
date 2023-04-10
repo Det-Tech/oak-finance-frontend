@@ -156,7 +156,7 @@ export default function ValuePage(params) {
 
   const getTvl = async() => {
     const vaultContract = new web3.eth.Contract(hVaultABI, CONTRACTS.vaultContract);
-    const tvl = await vaultContract.methods.balance().call({from: address})
+    const tvl = await vaultContract.methods.balance().call()
     console.log("tvl: ", tvl)
     const tvlAmount = formatDecimalFrom18(tvl)
     console.log("tvlAmount: ", tvlAmount)
@@ -188,10 +188,10 @@ export default function ValuePage(params) {
 
   const getTotalDeposit = ()=> {
     const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.vaultContract);
-    contract.methods.totalSupply().call({from: address}).then(amount=>{
+    contract.methods.totalSupply().call().then(amount=>{
 
       const vaultContract = new web3.eth.Contract(hVaultABI, CONTRACTS.vaultContract);
-      vaultContract.methods.getPricePerFullShare().call({from: address}).then(pricePerFullShare=>{
+      vaultContract.methods.getPricePerFullShare().call().then(pricePerFullShare=>{
       console.log("pricePerFullShare: ", pricePerFullShare);
       const _amount = new BigNumber(amount);
       const __amount = formatDecimalFrom18(_amount.multipliedBy(new BigNumber(pricePerFullShare)))

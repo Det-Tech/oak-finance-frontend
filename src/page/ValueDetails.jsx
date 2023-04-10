@@ -120,7 +120,7 @@ export default function ValueDetailsPage(params) {
 
   const getTvl = async() => {
     const vaultContract = new web3.eth.Contract(hVaultABI, CONTRACTS.vaultContract);
-    const tvl = await vaultContract.methods.balance().call({from: address})
+    const tvl = await vaultContract.methods.balance().call()
     console.log("tvl: ", tvl)
     const tvlAmount = formatDecimalFrom18(tvl)
     console.log("tvlAmount: ", tvlAmount)
@@ -289,7 +289,7 @@ export default function ValueDetailsPage(params) {
 
   const getBalance = async()=> {
     const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.lpToken);
-    return await contract.methods.balanceOf(address).call({from: address}).then(amount=>{
+    return await contract.methods.balanceOf(address).call().then(amount=>{
       let num = new BigNumber(amount)
       let ans = num.dividedBy('1e18').toNumber().toFixed(2)
       console.log("my lptoken balance: ", ans, amount);
@@ -300,7 +300,7 @@ export default function ValueDetailsPage(params) {
 
   const getWithdrawBalance = async()=> {
     const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.vaultContract);
-    return await contract.methods.balanceOf(address).call({from: address}).then(amount=>{
+    return await contract.methods.balanceOf(address).call().then(amount=>{
       console.log("withdraw balance share: ", amount);
       let num = new BigNumber(amount)
       let ans = num.dividedBy('1e18').toNumber().toFixed(2)
@@ -526,10 +526,10 @@ export default function ValueDetailsPage(params) {
   
   const getTotalDeposit = ()=> {
     const contract = new web3.eth.Contract(erc20ABI, CONTRACTS.vaultContract);
-    contract.methods.totalSupply().call({from: address}).then(amount=>{
+    contract.methods.totalSupply().call().then(amount=>{
 
       const vaultContract = new web3.eth.Contract(hVaultABI, CONTRACTS.vaultContract);
-      vaultContract.methods.getPricePerFullShare().call({from: address}).then(pricePerFullShare=>{
+      vaultContract.methods.getPricePerFullShare().call().then(pricePerFullShare=>{
       console.log("pricePerFullShare: ", pricePerFullShare);
       const _amount = new BigNumber(amount);
       const __amount = formatDecimalFrom18(_amount.multipliedBy(new BigNumber(pricePerFullShare)))
