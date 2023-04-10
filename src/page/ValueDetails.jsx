@@ -98,9 +98,9 @@ export default function ValueDetailsPage(params) {
     console.log("blockRewards: ", blockRewards.toNumber(), "totalAllocPoint: ", totalAllocPoint.toNumber())
 
     // totalStakeInUsd, poolBlockReward
-    const lpPrice = 1; //await fetchPrice({ oracle: 'lps', id: pool.name });
-    const tokenPrice = 0.00001; // await fetchPrice({ oracle, id: oracleId });
-    const totalStakedInUsd = BigNumber(balance).times(lpPrice).dividedBy('1e18');
+    // const lpPrice = 1; //await fetchPrice({ oracle: 'lps', id: pool.name });
+    const tokenPrice = 0.01; // await fetchPrice({ oracle, id: oracleId });
+    const totalStakedInUsd = BigNumber(balance).times(tokenPrice).dividedBy('1e18');
     const poolBlockRewards = blockRewards.times(allocPoint).dividedBy(totalAllocPoint).dividedBy('1e18');
     console.log("totalStakedInUsd: ", totalStakedInUsd.toNumber(), "poolBlockRewards:", poolBlockRewards.toNumber())
 
