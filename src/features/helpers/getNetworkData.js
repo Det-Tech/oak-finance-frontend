@@ -96,6 +96,7 @@ const networkTxUrls = {
   40: hash => `https://www.teloscan.io/${hash}`,
   11119: hash => `https://explorer.hashbit.org/tx/${hash}`,
   11120: hash => `https://testnet-explorer.hashbit.org/tx/${hash}`,
+  71: hash => `https://evmtestnet.confluxscan.net/tx/${hash}`,
 };
 
 const networkFriendlyName = {
@@ -1347,6 +1348,29 @@ export const getNetworkConnectors = t => {
           }         
         },
       };
+    case 71:
+        return {
+          network: 'Conflux',
+          cacheProvider: true,
+          providerOptions: {
+            injected: {
+              display: {
+                name: 'MetaMask',
+              },
+            },
+            walletconnect: {
+              package: WalletConnectProvider,
+              options: {
+                network: 'Conflux',
+                rpc: {
+                  // 1: 'https://testnet-rpc.hashbit.org',
+                  71: 'https://evmtestnet.confluxrpc.com',
+                },
+              },
+            }         
+          },
+        };
+      
     default:
       return {};
   }

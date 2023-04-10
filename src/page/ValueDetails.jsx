@@ -35,11 +35,11 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const CONTRACTS = {
-  padContract:"0x2C24c88f06A316A3995244d10A8D9f881962dBC6",
-  lpToken:"0x23cEb1822689A5D3c3E1086075c3fC2cadD372b2",
-  vaultContract:"0x13B1f02739Dad0A4Ffc285F566383568D68F99CE",
-  strategyContract:"0x4F4e3362105819E17405F85d923600AbF88e5dFE",
-  masterChef2Contract: "0x79f408943a39B2a7ad97211EeF6871A66eaba827",
+  padContract:"0x3f2474AaaFD4a5001096Ced7b91e768A50503b1D",
+  lpToken:"0x534E2DD65900fC1C50AC388fFE0310F170A99EC9",
+  vaultContract:"0x136556C149aA6C88cEB8cd3A62C9933b29840F9F",
+  strategyContract:"0x7eb63900aCC474090328630afF4b9682e851cC08",
+  masterChef2Contract: "0x68E515227d3E9037F29A40812785bD0bbA4E2bF3",
 }
 const units = ['', 'k', 'M', 'B', 'T', 'Q', 'Q', 'S', 'S'];
 
@@ -110,7 +110,7 @@ export default function ValueDetailsPage(params) {
     console.log("yearlyRewards: ", yearlyRewards.toNumber(), "yearlyRewardsInUsd: ", yearlyRewardsInUsd.toNumber())
 
     // get APY
-    const simpleApy = yearlyRewardsInUsd.dividedBy(totalStakedInUsd).toNumber();
+    const simpleApy = yearlyRewardsInUsd.dividedBy(totalStakedInUsd*100000).toNumber();
     console.log("simpleApy: ", simpleApy);
     setApy(simpleApy.toFixed(2))
     const totalDaily = yearlyToDaily(simpleApy);

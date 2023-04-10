@@ -21,6 +21,17 @@ export const networkSettings = {
     rpcUrls: ['https://testnet-rpc.hashbit.org'],
     blockExplorerUrls: ['https://testnet-explorer.hashbit.org/'],
   },
+  71: {
+    chainId: `0x${parseInt(71, 10).toString(16)}`,
+    chainName: 'Conflux',
+    nativeCurrency: {
+      name: 'Conflux',
+      symbol: 'Conflux',
+      decimals: 18,
+    },
+    rpcUrls: ['https://evmtestnet.confluxrpc.com'],
+    blockExplorerUrls: ['https://evmtestnet.confluxscan.net'],
+  },
   
 };
 

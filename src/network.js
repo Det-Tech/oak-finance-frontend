@@ -6,10 +6,16 @@ export const allNetworks = [
   //   id: 11119,
   //   hash: '/',
   // },
+  // {
+  //   name: 'HBITtest',
+  //   asset: 'HBITtest',
+  //   id: 11120,
+  //   hash: '/',
+  // },
   {
-    name: 'HBITtest',
-    asset: 'HBITtest',
-    id: 11120,
+    name: 'Conflux',
+    asset: 'Conflux',
+    id: 71,
     hash: '/',
   },
 ];
